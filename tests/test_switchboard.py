@@ -45,3 +45,54 @@ def test_register_call_counts_calls_between_local_and_foreign_users() -> None:
 
     assert switchboard.get_active_calls_count() == 3
     assert switchboard.get_cross_border_calls_count() == 1
+
+def test_register_call_with_incomplete_data() -> None:
+    switchboard = Switchboard()
+
+    with pytest.raises(ValueError, match="Invalid call data format"):
+        switchboard.register_call(
+            "1,Ivan Ivanov,+79990000000,2,John Smith"
+        )
+
+def test_register_call_with_not_integer_id() -> None:
+    switchboard = Switchboard()
+
+    with pytest.raises(ValueError, match="invalid literal for int()"):
+        switchboard.register_call(
+            "1a,Ivan Ivanov,+79990000000,2,John Smith,+15551234567"
+        )
+
+    with pytest.raises(ValueError, match="invalid literal for int()"):
+        switchboard.register_call(
+            ",Ivan Ivanov,+79990000000,2,John Smith,+15551234567"
+        )
+
+def test_register_call_with_negative_id() -> None:
+    switchboard = Switchboard()
+
+    with pytest.raises(ValueError, match="user_id cannot be negative"):
+        switchboard.register_call(
+            "-1,Ivan Ivanov,+79990000000,2,John Smith,+15551234567"
+        )
+
+def test_register_call_with_empty_fullname() -> None:
+    switchboard = Switchboard()
+    
+    with pytest.raises(ValueError, match="User fullname cannot be empty"):
+        switchboard.register_call(
+            "1,,+79990000000,2,John Smith,+15551234567"
+        )
+
+    with pytest.raises(ValueError, match="User fullname cannot be empty"):
+        switchboard.register_call(
+            "1,         ,+79990000000,2,John Smith,+15551234567"
+        )
+        
+def test_register_call_with_empty_number() -> None:
+    switchboard = Switchboard()
+    
+    with pytest.raises(ValueError, match="User phone cannot be empty"):
+        switchboard.register_call(
+            "1,Ivan Ivanov,+79990000000,2,John Smith,"
+        )
+
