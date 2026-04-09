@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from re import U
+import re
 
 from app.users import ForeignUser, LocalUser, User
 
 
 LOCAL_PHONE_PREFIX = "+7"
-
+FULLNAME_REGEX = re.compile(r"^[A-Za-zА-Яа-яЁё\s\-]+$")
+PHONE_REGEX = re.compile(r"^\+\d{10,15}$")
 
 @dataclass(slots=True)
 class ActiveCall:
@@ -31,13 +33,28 @@ class Switchboard:
 
         Например: "1001,Иван Петров,+71234567890,1085,Адам Яковлев,+71255556666"
         '''
-        args = raw_call.split(",")
+        if not isinstance(raw_call, str):
+            raise TypeError("raw_call must be string")
+        
+        args = [arg.strip() for arg in raw_call.split(",")]
         if len(args) != 6: raise ValueError("Invalid call data format")
+
+        if any(not arg for arg in args):
+            raise ValueError("Call data cannot contain empty fields")
 
         caller = self.create_user(args[0], args[1], args[2])
         receiver = self.create_user(args[3], args[4], args[5])
 
+        if caller.id == receiver.id:
+            raise ValueError("Caller and receiver cannot be the same user")
+
         active_call = ActiveCall(caller, receiver)
+
+        for call in self._active_calls:
+            if (call.caller.id == caller.id and
+                call.receiver.id == receiver.id):
+                raise ValueError("Call already registered")
+
         self._active_calls.append(active_call)
 
         if active_call.is_cross_border:
@@ -52,10 +69,20 @@ class Switchboard:
         return self._cross_border_count
     
     def create_user(self, user_id, name, phone) -> User:        
-        user_id_int = int(user_id)
+        try:
+            user_id_int = int(user_id)
+        except ValueError:
+            raise ValueError(f"Invalid user_id: {user_id}")
+        
         if user_id_int < 0: 
             raise ValueError(f"Invalid call data format: user_id cannot be negative, got {user_id_int}")
         
+        if not FULLNAME_REGEX.match(name.strip()):
+            raise ValueError(f"Invalid fullname: {name}")
+        
+        if not PHONE_REGEX.match(phone):
+            raise ValueError(f"Invalid phone format: {phone}")
+
         if phone.startswith(LOCAL_PHONE_PREFIX):
             return LocalUser(user_id_int, name, phone)
         return ForeignUser(user_id_int, name, phone)
